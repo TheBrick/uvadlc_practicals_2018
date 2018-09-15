@@ -36,7 +36,16 @@ class MLP(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    self.linear_layers = []
+    number_of_inputs = n_inputs
+    for hidden_layer_size in n_hidden:
+      linear = LinearModule(number_of_inputs, hidden_layer_size)
+      self.linear_layers.append(linear)
+      number_of_inputs = hidden_layer_size
+    linear = LinearModule(number_of_inputs, n_classes)
+    self.linear_layers.append(linear)
+    self.relu_layer = ReLUModule()
+    self.softmax_layer = SoftMaxModule()
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -58,7 +67,12 @@ class MLP(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    out = x
+    for layer in self.linear_layers[:-1]:
+      out = layer.forward(out)
+      out = self.relu_layer.forward(out)
+    out = self.linear_layers[-1].forward(out)
+    out = self.softmax_layer.forward(out)
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -79,9 +93,19 @@ class MLP(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    dout = self.softmax_layer.backward(dout)
+    dout = self.linear_layers[-1].backward(dout)
+    for layer in reversed(self.linear_layers[:-1]):
+      dout = self.relu_layer.backward(dout)
+      dout = layer.backward(dout)
     ########################
     # END OF YOUR CODE    #
     #######################
 
+    return
+
+  def step (self, learning_rate):
+    for layer in self.linear_layers:
+      layer.params['weight'] -= learning_rate * layer.grads['weight']
+      layer.params['bias'] -= learning_rate * layer.grads['bias']
     return

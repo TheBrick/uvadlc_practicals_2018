@@ -26,9 +26,11 @@ class LinearModule(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    self.params = {'weight': None, 'bias': None}
-    self.grads = {'weight': None, 'bias': None}
-    raise NotImplementedError
+    print("Linear layer %d -> %d" % (in_features, out_features))
+    self.params = {'weight': np.random.normal(0, 0.0001, [in_features, out_features]),
+                   'bias': np.zeros(out_features)}
+    self.grads = {'weight': np.zeros([in_features, out_features]),
+                  'bias': np.zeros(out_features)}
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -51,7 +53,8 @@ class LinearModule(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    self.x = x
+    out = np.einsum("io,bi->bo", self.params['weight'], x) + self.params['bias']
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -75,7 +78,9 @@ class LinearModule(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    self.grads['weight'] = self.x.T @ dout
+    #dout = np.mean(dout, axis=0)  # average the gradients from the batch (why hasn't this been done already?)
+    dx = dout @ self.params['weight'].T
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -104,7 +109,8 @@ class ReLUModule(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    out = np.maximum(np.zeros(x.shape), x)
+    self.out = out
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -127,10 +133,10 @@ class ReLUModule(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    dx = dout * (self.out > 0)
     ########################
     # END OF YOUR CODE    #
-    #######################    
+    #######################
 
     return dx
 
@@ -138,6 +144,12 @@ class SoftMaxModule(object):
   """
   Softmax activation module.
   """
+
+  def softmax_batch(self, x):
+    b = x.max(axis=1)
+    y = np.exp(x.T - b).T
+    return (y.T / y.sum(axis=1)).T
+
   def forward(self, x):
     """
     Forward pass.
@@ -156,7 +168,8 @@ class SoftMaxModule(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    self.s_x = self.softmax_batch(x)
+    out = self.s_x
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -179,7 +192,12 @@ class SoftMaxModule(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    b, d_n = self.s_x.shape
+    M = np.dstack([self.s_x]*d_n)  # bij
+    I = np.dstack([np.eye(d_n)]*b)  # ijb
+    I = np.moveaxis(I, -1, 0)  # bij
+    grad = M * (I - np.swapaxes(M, 1, 2))
+    dx = np.einsum("bi,bij->bj", dout, grad)
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -207,7 +225,9 @@ class CrossEntropyModule(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    b = y.shape[0]
+    log_likelihood = -np.log(x[range(b), y.argmax(axis=1)])
+    out = np.sum(log_likelihood) / b
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -231,7 +251,7 @@ class CrossEntropyModule(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    dx = - (y/x) / x.shape[0]
     ########################
     # END OF YOUR CODE    #
     #######################

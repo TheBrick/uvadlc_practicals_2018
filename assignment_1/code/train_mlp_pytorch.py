@@ -10,6 +10,8 @@ import argparse
 import numpy as np
 import os
 from mlp_pytorch import MLP
+import torch
+import torch.nn as nn
 import cifar10_utils
 
 # Default constants
@@ -45,7 +47,10 @@ def accuracy(predictions, targets):
   ########################
   # PUT YOUR CODE HERE  #
   #######################
-  raise NotImplementedError
+  b = targets.shape[0]
+  p = torch.argmax(predictions, dim=1)
+  t = torch.argmax(targets, dim=1)
+  accuracy = torch.sum(p == t).to(torch.float32) / b
   ########################
   # END OF YOUR CODE    #
   #######################
@@ -63,6 +68,7 @@ def train():
   ### DO NOT CHANGE SEEDS!
   # Set the random seeds for reproducibility
   np.random.seed(42)
+  torch.manual_seed(42)
 
   ## Prepare all functions
   # Get number of units in each hidden layer specified in the string such as 100,100
@@ -75,7 +81,30 @@ def train():
   ########################
   # PUT YOUR CODE HERE  #
   #######################
-  raise NotImplementedError
+  device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+  data = cifar10_utils.get_cifar10(FLAGS.data_dir)
+  n_inputs = 3*32*32
+  n_classes = 10
+  mlp = MLP(n_inputs, dnn_hidden_units, n_classes).to(device)
+  loss_fn = nn.CrossEntropyLoss()
+  optimizer = torch.optim.SGD(mlp.parameters(), lr=FLAGS.learning_rate)
+  for step in range(FLAGS.max_steps):
+    batch, targets = data['train'].next_batch(FLAGS.batch_size)
+    input = torch.tensor(batch.reshape((FLAGS.batch_size, -1)), dtype=torch.float32).to(device)
+    targets = torch.tensor(targets, dtype=torch.long).to(device)
+    predictions = mlp.forward(input)
+    gradient = loss_fn(predictions, targets.argmax(dim=1))
+    optimizer.zero_grad()
+    gradient.backward()
+    optimizer.step()
+    if step % FLAGS.eval_freq == 0 or step == FLAGS.max_steps-1:
+        training_loss = loss_fn.forward(predictions, targets.argmax(dim=1))
+        test_predictions = mlp(torch.tensor(data['test'].images.reshape(data['test'].num_examples, -1), dtype=torch.float32).to(device))
+        test_loss = loss_fn(test_predictions, torch.tensor(data['test'].labels, dtype=torch.long).to(device).argmax(dim=1))
+        acc = accuracy(test_predictions, torch.tensor(data['test'].labels, dtype=torch.long).to(device))
+        print("step %d/%d: training loss: %.3f test loss: %.3f accuracy: %.3f"
+              % (step, FLAGS.max_steps, training_loss, test_loss, acc))
+  print("done")
   ########################
   # END OF YOUR CODE    #
   #######################

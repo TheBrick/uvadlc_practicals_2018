@@ -46,7 +46,10 @@ def accuracy(predictions, targets):
   ########################
   # PUT YOUR CODE HERE  #
   #######################
-  raise NotImplementedError
+  b = targets.shape[0]
+  p = np.argmax(predictions, axis=1)
+  t = np.argmax(targets, axis=1)
+  accuracy = np.sum(p == t) / b
   ########################
   # END OF YOUR CODE    #
   #######################
@@ -76,7 +79,26 @@ def train():
   ########################
   # PUT YOUR CODE HERE  #
   #######################
-  raise NotImplementedError
+  data = cifar10_utils.get_cifar10(FLAGS.data_dir)
+  n_inputs = 3*32*32
+  n_classes = 10
+  mlp = MLP(n_inputs, dnn_hidden_units, n_classes)
+  loss_fn = CrossEntropyModule()
+  for step in range(FLAGS.max_steps):
+    batch, targets = data['train'].next_batch(FLAGS.batch_size)
+    input = batch.reshape((FLAGS.batch_size, -1))
+    predictions = mlp.forward(input)
+    gradient = loss_fn.backward(predictions, targets)
+    mlp.backward(gradient)
+    mlp.step(FLAGS.learning_rate)
+    if step % FLAGS.eval_freq == 0 or step == FLAGS.max_steps-1:
+        training_loss = loss_fn.forward(predictions, targets)
+        test_predictions = mlp.forward(data['test'].images.reshape(data['test'].num_examples, -1))
+        test_loss = loss_fn.forward(test_predictions, data['test'].labels)
+        acc = accuracy(test_predictions, data['test'].labels)
+        print("step %d/%d: training loss: %.3f test loss: %.3f accuracy: %.3f"
+              % (step, FLAGS.max_steps, training_loss, test_loss, acc))
+  print("done")
   ########################
   # END OF YOUR CODE    #
   #######################
