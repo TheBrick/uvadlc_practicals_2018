@@ -54,7 +54,8 @@ class LinearModule(object):
     # PUT YOUR CODE HERE  #
     #######################
     self.x = x
-    out = np.einsum("io,bi->bo", self.params['weight'], x) + self.params['bias']
+    #out = np.einsum("io,bi->bo", self.params['weight'], x) + self.params['bias']  # this is reaaaaly slow
+    out = x @ self.params['weight'] + self.params['bias']
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -79,7 +80,7 @@ class LinearModule(object):
     # PUT YOUR CODE HERE  #
     #######################
     self.grads['weight'] = self.x.T @ dout
-    #dout = np.mean(dout, axis=0)  # average the gradients from the batch (why hasn't this been done already?)
+    self.grads['bias'] = dout.sum(axis=0)
     dx = dout @ self.params['weight'].T
     ########################
     # END OF YOUR CODE    #
@@ -197,7 +198,8 @@ class SoftMaxModule(object):
     I = np.dstack([np.eye(d_n)]*b)  # ijb
     I = np.moveaxis(I, -1, 0)  # bij
     grad = M * (I - np.swapaxes(M, 1, 2))
-    dx = np.einsum("bi,bij->bj", dout, grad)
+    #dx = np.einsum("bi,bij->bj", dout, grad)  # probably slow too
+    dx = (grad @ np.expand_dims(dout, axis=2)).squeeze()
     ########################
     # END OF YOUR CODE    #
     #######################

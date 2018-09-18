@@ -40,15 +40,17 @@ class MLP(nn.Module):
     number_of_inputs = n_inputs
     for hidden_layer_size in n_hidden:
       linear = nn.Linear(number_of_inputs, hidden_layer_size)
+      batchnorm = nn.BatchNorm1d(hidden_layer_size)
       relu = nn.ReLU()
       self.layers.append(linear)
+      self.layers.append(batchnorm)
       self.layers.append(relu)
       number_of_inputs = hidden_layer_size
 
     linear = nn.Linear(number_of_inputs, n_classes)
     softmax = nn.Softmax()
     self.layers.append(linear)
-    self.layers.append(softmax)
+    #self.layers.append(softmax)
     self.sequential = nn.Sequential(*self.layers)
     ########################
     # END OF YOUR CODE    #
@@ -71,7 +73,7 @@ class MLP(nn.Module):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    out = self.sequential(x)
+    out = self.sequential(x.reshape(x.shape[0], -1))
     ########################
     # END OF YOUR CODE    #
     #######################

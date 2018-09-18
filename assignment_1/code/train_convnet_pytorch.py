@@ -11,6 +11,9 @@ import numpy as np
 import os
 from convnet_pytorch import ConvNet
 import cifar10_utils
+import torch
+import torch.nn as nn
+import time
 
 # Default constants
 LEARNING_RATE_DEFAULT = 1e-4
@@ -45,7 +48,10 @@ def accuracy(predictions, targets):
   ########################
   # PUT YOUR CODE HERE  #
   #######################
-  raise NotImplementedError
+  b = targets.shape[0]
+  p = torch.argmax(predictions, dim=1)
+  t = torch.argmax(targets, dim=1)
+  accuracy = torch.sum(p == t).to(torch.float32) / b
   ########################
   # END OF YOUR CODE    #
   #######################
@@ -63,11 +69,50 @@ def train():
   ### DO NOT CHANGE SEEDS!
   # Set the random seeds for reproducibility
   np.random.seed(42)
+  torch.manual_seed(42)
 
   ########################
   # PUT YOUR CODE HERE  #
   #######################
-  raise NotImplementedError
+  device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+  data = cifar10_utils.get_cifar10(FLAGS.data_dir)
+  n_inputs = 3*32*32
+  n_classes = 10
+  batches_per_epoch = (int) (data['test'].images.shape[0] / FLAGS.batch_size)  # need this for test set
+  model = ConvNet(n_inputs, n_classes).to(device)
+  loss_fn = nn.CrossEntropyLoss()
+  optimizer = torch.optim.Adam(model.parameters())
+  max_accuracy = 0.0
+  start_time = time.perf_counter()
+  for step in range(1, FLAGS.max_steps+1):
+    x, y = get_batch(data, 'train', FLAGS.batch_size, device)
+    predictions = model.forward(x)
+    training_loss = loss_fn(predictions, y.argmax(dim=1))
+    optimizer.zero_grad()
+    training_loss.backward()
+    optimizer.step()
+    if step == 1 or step % FLAGS.eval_freq == 0:
+      with torch.no_grad():
+        test_loss = 0
+        test_acc = 0
+        for test_batch in range(batches_per_epoch):
+          x, y = get_batch(data, 'test', FLAGS.batch_size, device)
+          predictions = model(x)
+          test_loss += loss_fn(predictions, y.argmax(dim=1)) / batches_per_epoch
+          test_acc += accuracy(predictions, y) / batches_per_epoch
+        if test_acc > max_accuracy:
+          max_accuracy = test_acc
+        print("step %d/%d: training loss: %.3f test loss: %.3f accuracy: %.1f%%"
+              % (step, FLAGS.max_steps, training_loss, test_loss, test_acc*100))
+
+  time_taken = time.perf_counter() - start_time
+  print("Done. Scored %.1f%% in %.1f seconds." % (max_accuracy*100, time_taken))
+
+def get_batch(data, type, size, device):
+  x, y = data[type].next_batch(size)
+  x = torch.tensor(x, dtype=torch.float32, device=device)
+  y = torch.tensor(y, dtype=torch.uint8, device=device)
+  return x, y
   ########################
   # END OF YOUR CODE    #
   #######################

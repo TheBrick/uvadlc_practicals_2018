@@ -13,6 +13,7 @@ from mlp_pytorch import MLP
 import torch
 import torch.nn as nn
 import cifar10_utils
+import time
 
 # Default constants
 DNN_HIDDEN_UNITS_DEFAULT = '100'
@@ -85,26 +86,60 @@ def train():
   data = cifar10_utils.get_cifar10(FLAGS.data_dir)
   n_inputs = 3*32*32
   n_classes = 10
-  mlp = MLP(n_inputs, dnn_hidden_units, n_classes).to(device)
+  batches_per_epoch = (int) (data['test'].images.shape[0] / FLAGS.batch_size)  # need this for test set
+  model = MLP(n_inputs, dnn_hidden_units, n_classes).to(device)
   loss_fn = nn.CrossEntropyLoss()
-  optimizer = torch.optim.SGD(mlp.parameters(), lr=FLAGS.learning_rate)
-  for step in range(FLAGS.max_steps):
-    batch, targets = data['train'].next_batch(FLAGS.batch_size)
-    input = torch.tensor(batch.reshape((FLAGS.batch_size, -1)), dtype=torch.float32).to(device)
-    targets = torch.tensor(targets, dtype=torch.long).to(device)
-    predictions = mlp.forward(input)
-    gradient = loss_fn(predictions, targets.argmax(dim=1))
+  optimizer = None
+  if FLAGS.optimizer == "Adam":
+    optimizer = torch.optim.Adam(model.parameters(), lr=FLAGS.learning_rate, weight_decay=FLAGS.weight_decay)
+  if FLAGS.optimizer == "SGD":
+    optimizer = torch.optim.SGD(model.parameters(), lr=FLAGS.learning_rate, weight_decay=FLAGS.weight_decay, momentum=FLAGS.momentum)
+  if FLAGS.optimizer == "RMSprop":
+    optimizer = torch.optim.RMSprop(model.parameters(), lr=FLAGS.learning_rate, weight_decay=FLAGS.weight_decay, momentum=FLAGS.momentum)
+  max_accuracy = 0.0
+  start_time = time.perf_counter()
+  for step in range(1, FLAGS.max_steps+1):
+    x, y = get_batch(data, 'train', FLAGS.batch_size, device)
+    predictions = model.forward(x)
+    training_loss = loss_fn(predictions, y.argmax(dim=1))
     optimizer.zero_grad()
-    gradient.backward()
+    training_loss.backward()
     optimizer.step()
-    if step % FLAGS.eval_freq == 0 or step == FLAGS.max_steps-1:
-        training_loss = loss_fn.forward(predictions, targets.argmax(dim=1))
-        test_predictions = mlp(torch.tensor(data['test'].images.reshape(data['test'].num_examples, -1), dtype=torch.float32).to(device))
-        test_loss = loss_fn(test_predictions, torch.tensor(data['test'].labels, dtype=torch.long).to(device).argmax(dim=1))
-        acc = accuracy(test_predictions, torch.tensor(data['test'].labels, dtype=torch.long).to(device))
-        print("step %d/%d: training loss: %.3f test loss: %.3f accuracy: %.3f"
-              % (step, FLAGS.max_steps, training_loss, test_loss, acc))
-  print("done")
+    if step == 1 or step % FLAGS.eval_freq == 0:
+      with torch.no_grad():
+        test_loss = 0
+        test_acc = 0
+        for test_batch in range(batches_per_epoch):
+          x, y = get_batch(data, 'test', FLAGS.batch_size, device)
+          predictions = model(x)
+          test_loss += loss_fn(predictions, y.argmax(dim=1)) / batches_per_epoch
+          test_acc += accuracy(predictions, y) / batches_per_epoch
+        if test_acc > max_accuracy:
+          max_accuracy = test_acc
+        print("step %d/%d: training loss: %.3f test loss: %.3f accuracy: %.1f%%"
+              % (step, FLAGS.max_steps, training_loss, test_loss, test_acc*100))
+
+  time_taken = time.perf_counter() - start_time
+  csv = open("results.csv", "a+")
+  csv.write("%s;%s;%f;%f;%f;%d;%d;%d;%f;%.3f\n" % (
+            FLAGS.dnn_hidden_units,
+            FLAGS.optimizer,
+            FLAGS.learning_rate,
+            FLAGS.momentum,
+            FLAGS.weight_decay,
+            FLAGS.batch_size,
+            FLAGS.max_steps,
+            FLAGS.eval_freq,
+            max_accuracy,
+            time_taken))
+  csv.close()
+  print("Done. Scored %.1f%% in %.1f seconds." % (max_accuracy*100, time_taken))
+
+def get_batch(data, type, size, device):
+  x, y = data[type].next_batch(size)
+  x = torch.tensor(x, dtype=torch.float32, device=device)
+  y = torch.tensor(y, dtype=torch.uint8, device=device)
+  return x, y
   ########################
   # END OF YOUR CODE    #
   #######################
@@ -144,6 +179,12 @@ if __name__ == '__main__':
                         help='Frequency of evaluation on the test set')
   parser.add_argument('--data_dir', type = str, default = DATA_DIR_DEFAULT,
                       help='Directory for storing input data')
+  parser.add_argument('--optimizer', type = str, default = "adam",
+                      help='\'Adam\' or \'SGD\' or \'RMSprop\'')
+  parser.add_argument('--weight_decay', type = float, default = 0.0,
+                      help='Weight decay')
+  parser.add_argument('--momentum', type = float, default = 0.0,
+                      help='Momentum for SGD solver')
   FLAGS, unparsed = parser.parse_known_args()
 
   main()

@@ -107,5 +107,5 @@ class MLP(object):
   def step (self, learning_rate):
     for layer in self.linear_layers:
       layer.params['weight'] -= learning_rate * layer.grads['weight']
-      layer.params['bias'] -= learning_rate * layer.grads['bias']
+      layer.params['bias']   -= learning_rate * layer.grads['bias']
     return

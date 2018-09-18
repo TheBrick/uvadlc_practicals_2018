@@ -12,6 +12,7 @@ import os
 from mlp_numpy import MLP
 from modules import CrossEntropyModule
 import cifar10_utils
+import time
 
 # Default constants
 DNN_HIDDEN_UNITS_DEFAULT = '100'
@@ -82,23 +83,29 @@ def train():
   data = cifar10_utils.get_cifar10(FLAGS.data_dir)
   n_inputs = 3*32*32
   n_classes = 10
-  mlp = MLP(n_inputs, dnn_hidden_units, n_classes)
+  model = MLP(n_inputs, dnn_hidden_units, n_classes)
   loss_fn = CrossEntropyModule()
-  for step in range(FLAGS.max_steps):
-    batch, targets = data['train'].next_batch(FLAGS.batch_size)
-    input = batch.reshape((FLAGS.batch_size, -1))
-    predictions = mlp.forward(input)
+  max_accuracy = 0.0
+  start_time = time.perf_counter()
+  for step in range(1, FLAGS.max_steps+1):
+    x, targets = data['train'].next_batch(FLAGS.batch_size)
+    input = x.reshape((FLAGS.batch_size, -1))
+    predictions = model.forward(input)
     gradient = loss_fn.backward(predictions, targets)
-    mlp.backward(gradient)
-    mlp.step(FLAGS.learning_rate)
-    if step % FLAGS.eval_freq == 0 or step == FLAGS.max_steps-1:
-        training_loss = loss_fn.forward(predictions, targets)
-        test_predictions = mlp.forward(data['test'].images.reshape(data['test'].num_examples, -1))
-        test_loss = loss_fn.forward(test_predictions, data['test'].labels)
-        acc = accuracy(test_predictions, data['test'].labels)
-        print("step %d/%d: training loss: %.3f test loss: %.3f accuracy: %.3f"
-              % (step, FLAGS.max_steps, training_loss, test_loss, acc))
-  print("done")
+    model.backward(gradient)
+    model.step(FLAGS.learning_rate)
+    if step == 1 or step % FLAGS.eval_freq == 0:
+      training_loss = loss_fn.forward(predictions, targets)
+      test_predictions = model.forward(data['test'].images.reshape(data['test'].num_examples, -1))
+      test_loss = loss_fn.forward(test_predictions, data['test'].labels)
+      test_acc = accuracy(test_predictions, data['test'].labels)
+      if test_acc > max_accuracy:
+        max_accuracy = test_acc
+      print("step %d/%d: training loss: %.3f test loss: %.3f accuracy: %.1f%%"
+              % (step, FLAGS.max_steps, training_loss, test_loss, test_acc*100))
+
+  time_taken = time.perf_counter() - start_time
+  print("Done. Scored %.1f%% in %.1f seconds." % (max_accuracy*100, time_taken))
   ########################
   # END OF YOUR CODE    #
   #######################
