@@ -1,2 +1,6 @@
 
 assignment_1/code/\.idea/
+
+assignment_1/code/__pycache__/
+
+assignment_1/code/cifar10/cifar-10-batches-py/
