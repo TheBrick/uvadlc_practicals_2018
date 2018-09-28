@@ -43,7 +43,7 @@ class MLP(nn.Module):
       batchnorm = nn.BatchNorm1d(hidden_layer_size)
       relu = nn.ReLU()
       self.layers.append(linear)
-      self.layers.append(batchnorm)
+      self.layers.append(batchnorm)  # custom addition
       self.layers.append(relu)
       number_of_inputs = hidden_layer_size
 

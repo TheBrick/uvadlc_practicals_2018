@@ -37,7 +37,10 @@ class CustomBatchNormAutograd(nn.Module):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    self.n_neurons = n_neurons
+    self.eps = eps
+    self.gamma = nn.Parameter(torch.ones(self.n_neurons))
+    self.beta = nn.Parameter(torch.zeros(self.n_neurons))
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -60,7 +63,12 @@ class CustomBatchNormAutograd(nn.Module):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    B,N = input.shape
+    assert(N == self.n_neurons)
+    mean = input.mean(dim=0)
+    std = torch.sum((input-mean)**2, dim=0) / B
+    normalized = torch.rsqrt(std + self.eps) * (input-mean)
+    out = self.gamma * normalized + self.beta
     ########################
     # END OF YOUR CODE    #
     #######################
