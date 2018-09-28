@@ -1,0 +1,17 @@
+learning_rate : 0.0001
+max_steps : 5000
+batch_size : 32
+eval_freq : 500
+data_dir : ./cifar10/cifar-10-batches-py
+step 1/5000: training loss: 2.280 test loss: 2.306 accuracy: 14.9%
+step 500/5000: training loss: 1.805 test loss: 1.480 accuracy: 45.1%
+step 1000/5000: training loss: 1.437 test loss: 1.282 accuracy: 53.8%
+step 1500/5000: training loss: 1.280 test loss: 1.196 accuracy: 57.6%
+step 2000/5000: training loss: 1.218 test loss: 1.091 accuracy: 61.0%
+step 2500/5000: training loss: 0.953 test loss: 0.989 accuracy: 65.0%
+step 3000/5000: training loss: 1.498 test loss: 0.918 accuracy: 67.8%
+step 3500/5000: training loss: 1.345 test loss: 0.905 accuracy: 68.4%
+step 4000/5000: training loss: 0.885 test loss: 0.827 accuracy: 71.0%
+step 4500/5000: training loss: 1.025 test loss: 0.758 accuracy: 73.6%
+step 5000/5000: training loss: 0.584 test loss: 0.742 accuracy: 74.5%
+Done. Scored 74.5% in 171.6 seconds.

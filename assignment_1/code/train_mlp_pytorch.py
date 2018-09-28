@@ -179,7 +179,7 @@ if __name__ == '__main__':
                         help='Frequency of evaluation on the test set')
   parser.add_argument('--data_dir', type = str, default = DATA_DIR_DEFAULT,
                       help='Directory for storing input data')
-  parser.add_argument('--optimizer', type = str, default = "adam",
+  parser.add_argument('--optimizer', type = str, default = "SGD",
                       help='\'Adam\' or \'SGD\' or \'RMSprop\'')
   parser.add_argument('--weight_decay', type = float, default = 0.0,
                       help='Weight decay')

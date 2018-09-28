@@ -1,0 +1,26 @@
+dnn_hidden_units : 500,500,500,500
+learning_rate : 0.0005
+max_steps : 1500
+batch_size : 400
+eval_freq : 100
+data_dir : ./cifar10/cifar-10-batches-py
+optimizer : Adam
+weight_decay : 0.002
+momentum : 0.0
+step 1   /1500: training loss: 2.323 test loss: 2.188 accuracy: 22.3%
+step 100 /1500: training loss: 1.563 test loss: 1.479 accuracy: 47.0%
+step 200 /1500: training loss: 1.396 test loss: 1.394 accuracy: 50.5%
+step 300 /1500: training loss: 1.201 test loss: 1.354 accuracy: 51.6%
+step 400 /1500: training loss: 1.193 test loss: 1.347 accuracy: 52.7%
+step 500 /1500: training loss: 1.196 test loss: 1.317 accuracy: 53.0%
+step 600 /1500: training loss: 1.111 test loss: 1.306 accuracy: 53.4%
+step 700 /1500: training loss: 0.992 test loss: 1.303 accuracy: 53.9%
+step 800 /1500: training loss: 1.026 test loss: 1.317 accuracy: 54.0%
+step 900 /1500: training loss: 1.025 test loss: 1.299 accuracy: 54.8%
+step 1000/1500: training loss: 1.009 test loss: 1.292 accuracy: 55.4%
+step 1100/1500: training loss: 0.957 test loss: 1.328 accuracy: 54.2%
+step 1200/1500: training loss: 0.949 test loss: 1.334 accuracy: 54.6%
+step 1300/1500: training loss: 0.729 test loss: 1.351 accuracy: 54.3%
+step 1400/1500: training loss: 0.717 test loss: 1.343 accuracy: 55.4%
+step 1500/1500: training loss: 0.879 test loss: 1.330 accuracy: 54.6%
+Done. Scored 55.4% in 10.2 seconds.
