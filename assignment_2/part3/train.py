@@ -33,66 +33,146 @@ from part3.model import TextGenerationModel
 
 ################################################################################
 
+def sample_greedy(output):
+    return output.argmax(dim=2).squeeze().item()
+
+def sample_mixed(output, temperature):
+    dist = torch.softmax(output.squeeze()/temperature, dim=0)
+    sample = torch.multinomial(dist, 1)
+    return sample.item()
+
+def sample_model_randomly (model, length, dataset, device, temperature):
+    # Take random character from vocabulary as int
+    random_char = torch.randint(dataset.vocab_size, (1, 1), dtype=torch.long, device=device)
+    return finish_phrase(model, random_char, length, dataset, device, temperature)
+
+def finish_phrase(model, phrase, length, dataset, device, temperature):
+    with torch.no_grad():
+        # Convert it to one-hot representation
+        phrase_onehot = one_hot(phrase, dataset.vocab_size)
+        # Run through model
+        out, (h, c) = model(phrase_onehot)
+        # Sample from output distribution
+        sample = sample_mixed(out[:,-1,:], temperature)
+
+        samples = phrase.view(-1).tolist()
+        samples.append(sample)
+        for t in range(length - 1):
+            # Convert previous sample to one-hot
+            input = one_hot(torch.tensor(sample, dtype=torch.long, device=device).view(1,-1), dataset.vocab_size)
+            out, (h, c) = model(input, (h, c))
+            sample = sample_mixed(out, temperature)
+            samples.append(sample)
+
+        text = dataset.convert_to_string(samples)
+        return text
+
+def one_hot (batch, vocab_size):
+    onehot_size = list(batch.shape)
+    onehot_size.append(vocab_size)
+    onehots = torch.zeros(onehot_size, device=batch.device)
+    onehots.scatter_(2, batch.unsqueeze(-1), 1)
+    return onehots
+
 def train(config):
 
     # Initialize the device which to run the model on
-    device = torch.device(config.device)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')  # No parameter this time? Okay
 
-    # Initialize the model that we are going to use
-    model = TextGenerationModel( ... )  # fixme
-
+    # Initializing dataset first because vocab size is needed for LSTM parameters
     # Initialize the dataset and data loader (note the +1)
-    dataset = TextDataset( ... )  # fixme
+    dataset = TextDataset(config.txt_file, config.seq_length)
     data_loader = DataLoader(dataset, config.batch_size, num_workers=1)
 
+    # Initialize the model that we are going to use
+    model = TextGenerationModel(config.batch_size,
+                                config.seq_length,
+                                dataset.vocab_size,
+                                config.lstm_num_hidden,
+                                config.lstm_num_layers)
+    model = model.to(device)
+
     # Setup the loss and optimizer
-    criterion = None  # fixme
-    optimizer = None  # fixme
+    criterion = torch.nn.CrossEntropyLoss()
+    optimizer = torch.optim.RMSprop(model.parameters(), lr=config.learning_rate)
 
-    for step, (batch_inputs, batch_targets) in enumerate(data_loader):
+    # Write settings to output so that they show up in log file
+    print(config)
 
-        # Only for time measurement of step through network
-        t1 = time.time()
+    # Better timing
+    t1 = time.time()
 
-        #######################################################
-        # Add more code here ...
-        #######################################################
+    # Calculate number of epochs needed to run for --training_steps number of batches.
+    epoch_count = (int)(config.train_steps / len(data_loader)) + 1
+    for epoch in range(epoch_count):
+        for step, (batch_inputs, batch_targets) in enumerate(data_loader):
+            total_step_counter = epoch * len(data_loader) + step
 
-        loss = np.inf   # fixme
-        accuracy = 0.0  # fixme
+            # Prepare for torch
+            x = torch.stack(batch_inputs, dim=1).to(device)
+            x = one_hot(x, dataset.vocab_size)
+            y = torch.stack(batch_targets, dim=1).to(device)
 
-        # Just for time measurement
-        t2 = time.time()
-        examples_per_second = config.batch_size/float(t2-t1)
+            # Forward pass
+            predictions, _ = model(x)
+            loss = criterion(predictions.transpose(2,1), y)
 
-        if step % config.print_every == 0:
+            # Backward pass
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-            print("[{}] Train Step {:04d}/{:04d}, Batch Size = {}, Examples/Sec = {:.2f}, "
-                  "Accuracy = {:.2f}, Loss = {:.3f}".format(
-                    datetime.now().strftime("%Y-%m-%d %H:%M"), step,
+            if total_step_counter % config.print_every == 0:
+                # Just for time measurement (changed to measure average every time it prints)
+                t2 = time.time()
+                examples_per_second = (config.print_every*config.batch_size)/float(t2-t1)
+
+                accuracy = torch.sum(predictions.argmax(dim=2) == y).to(torch.float32) / (config.batch_size * config.seq_length)
+                print("[{}] Train Step {:04d}/{:04d}, Batch Size = {}, Examples/Sec = {:.2f}, "
+                      "Accuracy = {:.2f}, Loss = {:.3f}".format(
+                    datetime.now().strftime("%Y-%m-%d %H:%M"), total_step_counter,
                     config.train_steps, config.batch_size, examples_per_second,
                     accuracy, loss
-            ))
+                ))
+                # Only for time measurement of step through network
+                t1 = time.time()
 
-        if step == config.sample_every:
             # Generate some sentences by sampling from the model
-            pass
+            if total_step_counter % config.sample_every == 0:
+                text = sample_model_randomly(model, config.seq_length, dataset, device, config.temperature)
+                print("Text sample (temp=%.1f): \"%s\"" % (config.temperature, text))
 
-        if step == config.train_steps:
-            # If you receive a PyTorch data-loader error, check this bug report:
-            # https://github.com/pytorch/pytorch/pull/9655
-            break
+                # Only for time measurement of step through network
+                t1 = time.time()
 
+            if total_step_counter == config.train_steps:
+                # If you receive a PyTorch data-loader error, check this bug report:
+                # https://github.com/pytorch/pytorch/pull/9655
+                break
+        print("Finished epoch %d/%d" % (epoch, epoch_count))
     print('Done training.')
 
+    # Save model to file for later exploitation
+    torch.save(model, config.txt_file + ".model.pt")
 
- ################################################################################
+    # Print a bunch of long random samples
+    temperatures = [0.01, 0.5, 1.0, 2.0]
+    for temperature in temperatures:
+        for i in range(5):
+            text = sample_model_randomly(model, 1000, dataset, device, temperature)
+            print("Text sample (temp=%.1f): \"%s\"" % (temperature, text))
+
+
+################################################################################
  ################################################################################
 
 if __name__ == "__main__":
 
     # Parse training configuration
     parser = argparse.ArgumentParser()
+
+    # Custom parameters
+    parser.add_argument('--temperature', type=float, default=1.0, help='Sampling temperature')
 
     # Model params
     parser.add_argument('--txt_file', type=str, required=True, help="Path to a .txt file to train on")
@@ -109,7 +189,7 @@ if __name__ == "__main__":
     parser.add_argument('--learning_rate_step', type=int, default=5000, help='Learning rate step')
     parser.add_argument('--dropout_keep_prob', type=float, default=1.0, help='Dropout keep probability')
 
-    parser.add_argument('--train_steps', type=int, default=1e6, help='Number of training steps')
+    parser.add_argument('--train_steps', type=int, default=1000000, help='Number of training steps')
     parser.add_argument('--max_norm', type=float, default=5.0, help='--')
 
     # Misc params
