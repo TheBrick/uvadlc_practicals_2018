@@ -21,12 +21,12 @@ dataset = TextDataset(config.txt_file, 10)
 if not config.model:
     config.model = config.txt_file + ".model.pt"
 
-model = torch.load(config.model)
+model = torch.load(config.model, map_location=device)
 model.lstm.flatten_parameters()
 
 print(config.phrase + "...")
 
-for i in range(5):
+for i in range(1):
     if not config.phrase:
         text = sample_model_randomly(model, config.length, dataset, device, config.temperature)
     else:
